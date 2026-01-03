@@ -13,7 +13,7 @@ If a user asks about anything else, politely refuse.
 FORMATTING RULES: Use **bold** for key terms, lists, and code blocks where needed.
 `;
 
-// 🤖 AUTO-DETECT: Find a model that actually works for YOU
+// 🤖 SMART SELECTOR: Strictly finds FREE models
 async function getValidModel(apiKey) {
     try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
@@ -21,18 +21,22 @@ async function getValidModel(apiKey) {
         
         if (!data.models) return null;
 
-        // 1. Look for "Flash" (Fastest)
-        const flash = data.models.find(m => m.name.includes("gemini-1.5-flash"));
-        if (flash) return flash.name;
+        const modelList = data.models.map(m => m.name);
+        console.log("📋 Available Models:", modelList); // Prints list to logs
 
-        // 2. Look for "Pro" (Standard)
-        const pro = data.models.find(m => m.name.includes("gemini-pro"));
-        if (pro) return pro.name;
+        // 🏆 PRIORITY 1: The Best Free Model (Flash)
+        // We look for specific versions to avoid "latest" (which can be paid)
+        if (modelList.some(name => name.includes("gemini-1.5-flash-001"))) return "gemini-1.5-flash-001";
+        if (modelList.some(name => name.includes("gemini-1.5-flash"))) return "gemini-1.5-flash";
 
-        // 3. Last Resort: Pick ANY model that generates text
-        const anyModel = data.models.find(m => m.supportedGenerationMethods.includes("generateContent"));
-        return anyModel ? anyModel.name : null;
+        // 🥈 PRIORITY 2: The Old Reliable (1.0 Pro)
+        // This is the most compatible model in the world
+        if (modelList.some(name => name.includes("gemini-1.0-pro"))) return "gemini-1.0-pro";
+        if (modelList.some(name => name.includes("gemini-pro") && !name.includes("latest") && !name.includes("vision"))) return "gemini-pro";
+
+        return null;
     } catch (e) {
+        console.error("Model check failed:", e);
         return null;
     }
 }
@@ -44,20 +48,22 @@ app.post("/chat", async (req, res) => {
     if (!key) return res.status(500).json({ reply: "Server Error: API Key missing" });
 
     try {
-        // 🔍 Step 1: Ask Google which model allows us to enter
-        console.log("🔍 Finding a working model...");
+        // 🔍 Step 1: Find the free model
+        console.log("🔍 Hunting for a FREE model...");
         let modelName = await getValidModel(key);
 
         if (!modelName) {
-            console.error("❌ CRITICAL: No models available for this API Key.");
-            return res.status(500).json({ reply: "Error: Your Google Account has no access to Gemini models." });
+            console.error("❌ ERROR: No free models found in your Google Account.");
+            return res.status(500).json({ reply: "Error: No free AI models available." });
         }
         
-        console.log(`✅ Using Model: ${modelName}`);
+        // Remove "models/" prefix if it exists to prevent double-prefix errors
+        modelName = modelName.replace("models/", "");
+        console.log(`✅ Locked on target: ${modelName}`);
 
-        // 🚀 Step 2: Send the message to THAT model
+        // 🚀 Step 2: Send message
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${key}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`,
             {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -73,6 +79,10 @@ app.post("/chat", async (req, res) => {
 
         if (data.error) {
             console.error("Google Error:", data.error);
+            // Handle specific 429 error
+            if (data.error.code === 429) {
+                return res.status(500).json({ reply: "Error: AI is too busy. Please try again in 1 minute." });
+            }
             return res.status(500).json({ reply: "Error: " + data.error.message });
         }
 
