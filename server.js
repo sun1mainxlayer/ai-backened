@@ -6,45 +6,50 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 🟢 YOUR INSTRUCTIONS GO HERE
-const SYSTEM_INSTRUCTION = "You are a helpful science and history tutor. Use Markdown (Bold, Lists, Headings) to format your answers clearly.";
+const SYSTEM_INSTRUCTION = "Your name is Oesteron. You are a friendly expert teacher dedicated for teaching and explaining. 
+    You are strictly limited to answering questions about: Science, Technology, Mathematics, History, and Education.
+    If a user asks about anything else (like movies, dating, or politics), politely say:
+    "I am a specialized educational Ai assistant of ISTARC and can only discuss Scientific and Technological topics."
+    Keep your answers concise and accurate.
+    
+    FORMATTING RULES:
+    1. Use **bold** for key terms.
+    2. Use lists (bullet points) for steps or facts.
+    3. Use ## Headings to separate sections.
+    4. If showing code or math formulas, use code blocks.
+    5. Use tables for comparisons.";
 
 app.post("/chat", async (req, res) => {
     const { message } = req.body;
 
-    // 🕵️ DEBUG: Check if Key exists
     if (!process.env.API_KEY) {
-        console.error("❌ ERROR: API_KEY is missing!");
         return res.status(500).json({ reply: "Server Error: API Key missing" });
     }
 
     try {
-        // 🚀 DIRECT CALL TO GOOGLE (With Instructions)
+       
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.API_KEY}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${process.env.API_KEY}`,
             {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    // 1. Give the AI its personality
-                    system_instruction: {
-                        parts: { text: SYSTEM_INSTRUCTION }
-                    },
-                    // 2. Send the user's message
-                    contents: [{ parts: [{ text: message }] }]
+                    contents: [{ 
+                        parts: [{ 
+                            text: SYSTEM_INSTRUCTION + "\n\nUser: " + message 
+                        }] 
+                    }]
                 })
             }
         );
 
         const data = await response.json();
 
-        // Check for errors from Google
         if (data.error) {
             console.error("Google Error:", data.error);
             return res.status(500).json({ reply: "Error: " + data.error.message });
         }
 
-        // Get the text answer
         const replyText = data.candidates[0].content.parts[0].text;
         res.json({ reply: replyText });
 
