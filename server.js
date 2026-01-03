@@ -6,60 +6,65 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const SYSTEM_INSTRUCTION = "You are a friendly science tutor.";
 
-const SYSTEM_INSTRUCTION = `
-Your name is Oesteron. You are a friendly expert teacher dedicated for teaching and explaining. 
-You are strictly limited to answering questions about: Science, Technology, Mathematics, History, and Education.
-If a user asks about anything else (like movies, dating, or politics), politely say:
-"I am a specialized educational Ai assistant of ISTARC and can only discuss Scientific and Technological topics."
-Keep your answers concise and accurate.
-
-FORMATTING RULES:
-1. Use **bold** for key terms.
-2. Use lists (bullet points) for steps or facts.
-3. Use ## Headings to separate sections.
-4. If showing code or math formulas, use code blocks.
-5. Use tables for comparisons.
-`;
-
-app.post("/chat", async (req, res) => {
-    const { message } = req.body;
-
-    if (!process.env.API_KEY) {
-        return res.status(500).json({ reply: "Server Error: API Key missing" });
+// 🩺 THE DOCTOR: Run this automatically when server starts
+async function checkAvailableModels() {
+    console.log("------------------------------------------");
+    console.log("🩺 DOCTOR: Checking available models...");
+    const key = process.env.API_KEY;
+    
+    if (!key) {
+        console.error("❌ ERROR: API Key is MISSING in Render!");
+        return;
     }
 
     try {
-       
+        // Ask Google for the list of models
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+        const data = await response.json();
+
+        if (data.error) {
+            console.error("❌ GOOGLE BLOCKED US:", data.error.message);
+        } else if (data.models) {
+            console.log("✅ SUCCESS! Access granted to these models:");
+            // Print the names of the models you are allowed to use
+            data.models.forEach(m => {
+                if (m.name.includes("gemini")) console.log(`   👉 ${m.name}`);
+            });
+        } else {
+            console.error("⚠️ WEIRD: No models found (but no error).");
+        }
+    } catch (err) {
+        console.error("❌ NETWORK CRASH:", err);
+    }
+    console.log("------------------------------------------");
+}
+
+// Run the check immediately
+checkAvailableModels();
+
+app.post("/chat", async (req, res) => {
+    const { message } = req.body;
+    try {
+        // We will try the most common model 'gemini-1.5-flash'
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${process.env.API_KEY}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.API_KEY}`,
             {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    contents: [{ 
-                        parts: [{ 
-                            // We combine your instructions + user message
-                            text: SYSTEM_INSTRUCTION + "\n\nUser Question: " + message 
-                        }] 
-                    }]
+                    contents: [{ parts: [{ text: SYSTEM_INSTRUCTION + "\n\n" + message }] }]
                 })
             }
         );
-
         const data = await response.json();
-
-        if (data.error) {
-            console.error("Google Error:", data.error);
-            return res.status(500).json({ reply: "Error: " + data.error.message });
-        }
-
-        const replyText = data.candidates[0].content.parts[0].text;
-        res.json({ reply: replyText });
+        
+        if (data.error) return res.status(500).json({ reply: "Error: " + data.error.message });
+        res.json({ reply: data.candidates[0].content.parts[0].text });
 
     } catch (error) {
-        console.error("Server Crash:", error);
-        res.status(500).json({ reply: "Server Internal Error" });
+        res.status(500).json({ reply: "Server Error" });
     }
 });
 
