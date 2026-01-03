@@ -6,65 +6,82 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const SYSTEM_INSTRUCTION = "You are a friendly science tutor.";
+const SYSTEM_INSTRUCTION = `
+Your name is Oesteron. You are a friendly expert teacher dedicated for teaching and explaining. 
+You are strictly limited to answering questions about: Science, Technology, Mathematics, History, and Education.
+If a user asks about anything else, politely refuse.
+FORMATTING RULES: Use **bold** for key terms, lists, and code blocks where needed.
+`;
 
-// 🩺 THE DOCTOR: Run this automatically when server starts
-async function checkAvailableModels() {
-    console.log("------------------------------------------");
-    console.log("🩺 DOCTOR: Checking available models...");
-    const key = process.env.API_KEY;
-    
-    if (!key) {
-        console.error("❌ ERROR: API Key is MISSING in Render!");
-        return;
-    }
-
+// 🤖 AUTO-DETECT: Find a model that actually works for YOU
+async function getValidModel(apiKey) {
     try {
-        // Ask Google for the list of models
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
         const data = await response.json();
+        
+        if (!data.models) return null;
 
-        if (data.error) {
-            console.error("❌ GOOGLE BLOCKED US:", data.error.message);
-        } else if (data.models) {
-            console.log("✅ SUCCESS! Access granted to these models:");
-            // Print the names of the models you are allowed to use
-            data.models.forEach(m => {
-                if (m.name.includes("gemini")) console.log(`   👉 ${m.name}`);
-            });
-        } else {
-            console.error("⚠️ WEIRD: No models found (but no error).");
-        }
-    } catch (err) {
-        console.error("❌ NETWORK CRASH:", err);
+        // 1. Look for "Flash" (Fastest)
+        const flash = data.models.find(m => m.name.includes("gemini-1.5-flash"));
+        if (flash) return flash.name;
+
+        // 2. Look for "Pro" (Standard)
+        const pro = data.models.find(m => m.name.includes("gemini-pro"));
+        if (pro) return pro.name;
+
+        // 3. Last Resort: Pick ANY model that generates text
+        const anyModel = data.models.find(m => m.supportedGenerationMethods.includes("generateContent"));
+        return anyModel ? anyModel.name : null;
+    } catch (e) {
+        return null;
     }
-    console.log("------------------------------------------");
 }
-
-// Run the check immediately
-checkAvailableModels();
 
 app.post("/chat", async (req, res) => {
     const { message } = req.body;
+    const key = process.env.API_KEY;
+
+    if (!key) return res.status(500).json({ reply: "Server Error: API Key missing" });
+
     try {
-        // We will try the most common model 'gemini-1.5-flash'
+        // 🔍 Step 1: Ask Google which model allows us to enter
+        console.log("🔍 Finding a working model...");
+        let modelName = await getValidModel(key);
+
+        if (!modelName) {
+            console.error("❌ CRITICAL: No models available for this API Key.");
+            return res.status(500).json({ reply: "Error: Your Google Account has no access to Gemini models." });
+        }
+        
+        console.log(`✅ Using Model: ${modelName}`);
+
+        // 🚀 Step 2: Send the message to THAT model
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.API_KEY}`,
+            `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${key}`,
             {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: SYSTEM_INSTRUCTION + "\n\n" + message }] }]
+                    contents: [{ 
+                        parts: [{ text: SYSTEM_INSTRUCTION + "\n\nUser Question: " + message }] 
+                    }]
                 })
             }
         );
+
         const data = await response.json();
-        
-        if (data.error) return res.status(500).json({ reply: "Error: " + data.error.message });
-        res.json({ reply: data.candidates[0].content.parts[0].text });
+
+        if (data.error) {
+            console.error("Google Error:", data.error);
+            return res.status(500).json({ reply: "Error: " + data.error.message });
+        }
+
+        const replyText = data.candidates[0].content.parts[0].text;
+        res.json({ reply: replyText });
 
     } catch (error) {
-        res.status(500).json({ reply: "Server Error" });
+        console.error("Server Crash:", error);
+        res.status(500).json({ reply: "Server Internal Error" });
     }
 });
 
