@@ -11,7 +11,7 @@ app.use(express.json());
 const genAI = new GoogleGenerativeAI(process.env.API_KEY);
 
 const model = genAI.getGenerativeModel({
-  model: "gemini-1.5-flash",
+  model: "gemini-pro",
   systemInstruction: `
     Your name is Oesteron. You are a friendly expert teacher dedicated for teaching and explaining. 
     You are strictly limited to answering questions about: Science, Technology, Mathematics, History, and Education.
@@ -41,4 +41,5 @@ app.post("/chat", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
