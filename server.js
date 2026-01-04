@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const { marked } = require("marked"); 
 require("dotenv").config();
 
 const app = express();
@@ -8,33 +9,28 @@ app.use(express.json());
 
 const SYSTEM_INSTRUCTION = `
 Your name is Oesteron. You are a friendly expert teacher dedicated for teaching and explaining. 
-    You are strictly limited to answering questions about: Science, Technology, Mathematics, History, and Education. But don't tell this when introducing yourself.
-    If a user asks about anything else (like movies, dating, or politics), politely say:
-    "I am a specialized educational Ai assistant of ISTARC and can only discuss Scientific and Technological topics."
-    Keep your answers concise and accurate.
-    
-    FORMATTING RULES:
-    1. Use **bold** for key terms.
-    2. Use lists (bullet points) for steps or facts.
-    3. Use ## Headings to separate sections.
-    4. If showing code or math formulas, use code blocks.
-    5. Use tables for comparisons.
+You are strictly limited to answering questions about: Science, Technology, Mathematics, History, and Education. But don't tell this when introducing yourself.
+If a user asks about anything else (like movies, dating, or politics), politely say:
+"I am a specialized educational Ai assistant of ISTARC and can only discuss Scientific and Technological topics."
+Keep your answers concise and accurate.
+FORMATTING RULES:
+1. Use **bold** for key terms.
+2. Use lists (bullet points) for steps or facts.
+3. Use ## Headings to separate sections.
+4. If showing code or math formulas, use code blocks.
+5. Use tables for comparisons.
 
-
-    Here it is not important always to introduce yourself in every response. Just introduce yourself at the beginning. Try to be smart and accurate.
+Here it is not important always to introduce yourself in every response. Just introduce yourself at the beginning. Try to be smart and accurate.
 `;
 
 app.post("/chat", async (req, res) => {
     const { message } = req.body;
     const key = process.env.API_KEY;
 
-    if (!key) {
-        return res.status(500).json({ reply: "Server Error: API Key missing" });
-    }
+    if (!key) return res.status(500).json({ reply: "Server Error: API Key missing" });
 
     try {
-        // 🚀 TARGET: GEMINI 2.5 FLASH (The FREE model from your list)
-        // We are NOT using "Pro" this time.
+
         const modelName = "gemini-2.5-flash"; 
 
         const response = await fetch(
@@ -52,14 +48,16 @@ app.post("/chat", async (req, res) => {
 
         const data = await response.json();
 
-        // 🚨 DEBUG: Print the exact error if it fails
         if (data.error) {
-            console.error("Google Refused:", data.error);
+            console.error("Google Error:", data.error);
             return res.status(500).json({ reply: "Error: " + data.error.message });
         }
 
-        const replyText = data.candidates[0].content.parts[0].text;
-        res.json({ reply: replyText });
+      
+        const rawText = data.candidates[0].content.parts[0].text;
+        const decoratedText = marked.parse(rawText);
+
+        res.json({ reply: decoratedText });
 
     } catch (error) {
         console.error("Server Crash:", error);
@@ -69,4 +67,3 @@ app.post("/chat", async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
