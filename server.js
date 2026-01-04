@@ -13,54 +13,19 @@ If a user asks about anything else, politely refuse.
 FORMATTING RULES: Use **bold** for key terms, lists, and code blocks where needed.
 `;
 
-
-async function getValidModel(apiKey) {
-    try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-        const data = await response.json();
-        
-        if (!data.models) return null;
-
-        const modelList = data.models.map(m => m.name);
-        console.log("📋 Available Models:", modelList); // Prints list to logs
-
-        
-        // We look for specific versions to avoid "latest" (which can be paid)
-        if (modelList.some(name => name.includes("gemini-1.5-flash-001"))) return "gemini-1.5-flash-001";
-        if (modelList.some(name => name.includes("gemini-1.5-flash"))) return "gemini-1.5-flash";
-
-
-        if (modelList.some(name => name.includes("gemini-1.0-pro"))) return "gemini-1.0-pro";
-        if (modelList.some(name => name.includes("gemini-pro") && !name.includes("latest") && !name.includes("vision"))) return "gemini-pro";
-
-        return null;
-    } catch (e) {
-        console.error("Model check failed:", e);
-        return null;
-    }
-}
-
 app.post("/chat", async (req, res) => {
     const { message } = req.body;
     const key = process.env.API_KEY;
 
-    if (!key) return res.status(500).json({ reply: "Server Error: API Key missing" });
+    if (!key) {
+        return res.status(500).json({ reply: "Server Error: API Key missing" });
+    }
 
     try {
-      
-        console.log("🔍 Hunting for a FREE model...");
-        let modelName = await getValidModel(key);
+        // 🚀 TARGET: GEMINI 2.5 FLASH (The FREE model from your list)
+        // We are NOT using "Pro" this time.
+        const modelName = "gemini-2.5-flash"; 
 
-        if (!modelName) {
-            console.error("❌ ERROR: No free models found in your Google Account.");
-            return res.status(500).json({ reply: "Error: No free AI models available." });
-        }
-        
-       
-        modelName = modelName.replace("models/", "");
-        console.log(`✅ Locked on target: ${modelName}`);
-
-      
         const response = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`,
             {
@@ -76,12 +41,9 @@ app.post("/chat", async (req, res) => {
 
         const data = await response.json();
 
+        // 🚨 DEBUG: Print the exact error if it fails
         if (data.error) {
-            console.error("Google Error:", data.error);
-            // Handle specific 429 error
-            if (data.error.code === 429) {
-                return res.status(500).json({ reply: "Error: AI is too busy. Please try again in 1 minute." });
-            }
+            console.error("Google Refused:", data.error);
             return res.status(500).json({ reply: "Error: " + data.error.message });
         }
 
@@ -96,4 +58,3 @@ app.post("/chat", async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
