@@ -13,7 +13,7 @@ If a user asks about anything else, politely refuse.
 FORMATTING RULES: Use **bold** for key terms, lists, and code blocks where needed.
 `;
 
-// 🤖 SMART SELECTOR: Strictly finds FREE models
+
 async function getValidModel(apiKey) {
     try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
@@ -24,13 +24,12 @@ async function getValidModel(apiKey) {
         const modelList = data.models.map(m => m.name);
         console.log("📋 Available Models:", modelList); // Prints list to logs
 
-        // 🏆 PRIORITY 1: The Best Free Model (Flash)
+        
         // We look for specific versions to avoid "latest" (which can be paid)
         if (modelList.some(name => name.includes("gemini-1.5-flash-001"))) return "gemini-1.5-flash-001";
         if (modelList.some(name => name.includes("gemini-1.5-flash"))) return "gemini-1.5-flash";
 
-        // 🥈 PRIORITY 2: The Old Reliable (1.0 Pro)
-        // This is the most compatible model in the world
+
         if (modelList.some(name => name.includes("gemini-1.0-pro"))) return "gemini-1.0-pro";
         if (modelList.some(name => name.includes("gemini-pro") && !name.includes("latest") && !name.includes("vision"))) return "gemini-pro";
 
@@ -48,7 +47,7 @@ app.post("/chat", async (req, res) => {
     if (!key) return res.status(500).json({ reply: "Server Error: API Key missing" });
 
     try {
-        // 🔍 Step 1: Find the free model
+      
         console.log("🔍 Hunting for a FREE model...");
         let modelName = await getValidModel(key);
 
@@ -57,11 +56,11 @@ app.post("/chat", async (req, res) => {
             return res.status(500).json({ reply: "Error: No free AI models available." });
         }
         
-        // Remove "models/" prefix if it exists to prevent double-prefix errors
+       
         modelName = modelName.replace("models/", "");
         console.log(`✅ Locked on target: ${modelName}`);
 
-        // 🚀 Step 2: Send message
+      
         const response = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`,
             {
@@ -97,3 +96,4 @@ app.post("/chat", async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
