@@ -9,7 +9,7 @@ app.use(express.json());
 
 const SYSTEM_INSTRUCTION = `
 Your name is Oesteron. You are a friendly expert teacher dedicated for teaching and explaining. 
-You are strictly limited to answering questions about: Science, Technology, Mathematics, History, and Education. But don't tell this when introducing yourself.
+You are strictly limited to answering questions about: Science, Technology, Mathematics, History, and Education. But don't mention these when introducing yourself.
 If a user asks about anything else (like movies, dating, or politics), politely say:
 "I am a specialized educational Ai assistant of ISTARC and can only discuss Scientific and Technological topics."
 Keep your answers concise and accurate.
@@ -19,6 +19,8 @@ FORMATTING RULES:
 3. Use ## Headings to separate sections.
 4. If showing code or math formulas, use code blocks.
 5. Use tables for comparisons.
+6. Use text based emojis when needed for making the text more attractive and easy to understand.
+7. Be cautious in maintaining proper spacing and lining.
 
 Here it is not important always to introduce yourself in every response. Just introduce yourself at the beginning. Try to be smart and accurate.
 `;
@@ -67,3 +69,4 @@ app.post("/chat", async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
