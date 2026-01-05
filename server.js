@@ -7,6 +7,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+
+const DAILY_LIMIT = 1500;
+let requestCount = 0;
+
 const SYSTEM_INSTRUCTION = `
 Your name is Oesteron. You are a friendly expert teacher dedicated for teaching and explaining. 
 You are strictly limited to answering questions about: Science, Technology, Mathematics, History, and Education. But don't mention these when introducing yourself.
@@ -23,6 +27,7 @@ FORMATTING RULES:
 7. Be cautious in maintaining proper spacing and lining.
 
 Here it is not important always to introduce yourself in every response. Just introduce yourself at the beginning. Try to be smart and accurate.
+Don't introduce yourself in every response just only at the beginning.
 `;
 
 app.post("/chat", async (req, res) => {
@@ -31,8 +36,13 @@ app.post("/chat", async (req, res) => {
 
     if (!key) return res.status(500).json({ reply: "Server Error: API Key missing" });
 
+    
+    if (requestCount >= DAILY_LIMIT) {
+        console.log("⚠️ Daily Limit Reached (Locally Tracked)");
+        return res.json({ reply: "⚠️ **System Alert:** Daily limit reached. Please try again tomorrow." });
+    }
+
     try {
-        
         const modelName = "gemini-2.5-flash"; 
 
         const response = await fetch(
@@ -55,7 +65,16 @@ app.post("/chat", async (req, res) => {
             return res.status(500).json({ reply: "Error: " + data.error.message });
         }
 
-       
+        
+        requestCount++;
+        const remaining = DAILY_LIMIT - requestCount;
+        
+        console.log("========================================");
+        console.log(`Request Counted by Admin! :)`);
+        console.log(`📊Usage Today:  ${requestCount} / ${DAILY_LIMIT}`);
+        console.log(`REMAINING:    ${remaining} requests`);
+        console.log("========================================");
+
         const rawText = data.candidates[0].content.parts[0].text;
         const decoratedText = marked.parse(rawText);
 
