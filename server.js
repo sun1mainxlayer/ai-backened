@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const { marked } = require("marked"); 
+const { marked } = require("marked");
 require("dotenv").config();
 
 const app = express();
@@ -32,7 +32,7 @@ app.post("/chat", async (req, res) => {
     if (!key) return res.status(500).json({ reply: "Server Error: API Key missing" });
 
     try {
-
+        
         const modelName = "gemini-2.5-flash"; 
 
         const response = await fetch(
@@ -55,7 +55,7 @@ app.post("/chat", async (req, res) => {
             return res.status(500).json({ reply: "Error: " + data.error.message });
         }
 
-      
+       
         const rawText = data.candidates[0].content.parts[0].text;
         const decoratedText = marked.parse(rawText);
 
@@ -69,7 +69,3 @@ app.post("/chat", async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
-
-
-
