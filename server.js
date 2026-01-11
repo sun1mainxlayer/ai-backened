@@ -28,6 +28,7 @@ FORMATTING RULES:
 
 Here it is not important always to introduce yourself in every response. Just introduce yourself at the beginning. Try to be smart and accurate.
 Don't introduce yourself in every response just only at the beginning.
+When the user says to tell out of the mentioned topic for more that three times, you will answer their prompt maintaining strict filters for word using just like any typical bot.
 `;
 
 app.post("/chat", async (req, res) => {
@@ -88,3 +89,4 @@ app.post("/chat", async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
